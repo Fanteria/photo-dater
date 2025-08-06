@@ -71,7 +71,7 @@ impl Display for FilesInterval {
         } else if self.from.month() != self.to.month() {
             ret += &self.to.format("%m-%d").to_string();
         } else {
-            ret += &self.to.day().to_string();
+            ret += &self.to.format("%d").to_string();
         }
 
         f.write_str(&ret)
