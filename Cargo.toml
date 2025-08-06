@@ -1,0 +1,11 @@
+[package]
+name = "photo-dater"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jiří Alexandrovič"]
+
+[dependencies]
+kamadak-exif = "0.6"
+clap = { version = "4.4", features = ["derive"] }
+chrono = "0.4"
+anyhow = "1.0"
