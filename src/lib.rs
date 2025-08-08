@@ -6,15 +6,15 @@ mod files_interval;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use file::File;
-use std::{ffi::OsString, fs, io, ops::Deref, path::PathBuf, process::exit};
+use std::{ffi::OsString, fs, io, path::PathBuf};
 
-use crate::{directory::Directory, file::ByCreatedDate};
+use crate::{directory::Directory, file::ByCreatedDate, files::RenamedFile};
 
 #[derive(Subcommand, Clone, Debug)]
 enum Commands {
-    ///
+    /// TODO
     Status,
-    ///
+    /// TODO
     Rename {
         /// Maximal interval in days
         #[arg(default_value = "0")]
@@ -22,21 +22,23 @@ enum Commands {
         #[arg(short, long)]
         dry_run: bool,
     },
-    ///
+    /// TODO
     List,
-    ///
+    /// TODO
     Interval,
-    ///
+    /// TODO
     Check {
         /// Maximal interval in days
         max_interval: u32,
     },
-    ///
+    /// TODO
     FilesRename {
         #[arg(short, long)]
         dry_run: bool,
+        #[arg(short, long)]
+        name: Option<String>,
     },
-    ///
+    /// TODO
     MoveByDays {
         #[arg(short, long)]
         dry_run: bool,
@@ -60,11 +62,12 @@ where
     WErr: io::Write,
 {
     let Cli { cmd, directory } = Cli::try_parse_from(args)?;
-    let mut directory = Directory::try_from(directory)?;
+    let directory = Directory::try_from(directory)?;
     match cmd {
         Commands::Status => match directory.name_status() {
             Ok(directory::NameStatus::Valid) => writeln!(std, "Date is valid")?,
             Ok(directory::NameStatus::Invalid) => writeln!(std, "Date is set but is invalid")?,
+            Ok(directory::NameStatus::SuperSet) => writeln!(std, "Date is set but is superset")?,
             Ok(directory::NameStatus::None) => writeln!(std, "Date is not set")?,
             Err(e) => writeln!(std, "Failed to get status '{}'", e)?,
         },
@@ -80,6 +83,10 @@ where
                     err,
                     "Directory already have date, but it is not match content"
                 )?,
+                NS::SuperSet => writeln!(
+                    err,
+                    "Directories name is already super set of the right name"
+                )?,
                 NS::None => {
                     if !dry_run {
                         fs::rename(&directory.directory, &new_path)?;
@@ -88,18 +95,11 @@ where
                 }
             }
         }
-        Commands::List => {
-            let files = directory.get_mut_files();
-            let mut files: Vec<_> = files.iter().map(ByCreatedDate::<&File>).collect();
-            files.sort();
-
-            files
-                .iter()
-                .map(|a| a.deref())
-                .try_for_each(|File { path, created }| {
-                    writeln!(std, "{path:?}: Created {created}")
-                })?;
-        }
+        Commands::List => directory
+            .get_files()
+            .get_sorted::<ByCreatedDate<&File>>()
+            .into_iter()
+            .try_for_each(|File { path, created }| writeln!(std, "{path:?}: Created {created}"))?,
         Commands::Interval => match directory.get_files().interval() {
             Some(interval) => writeln!(
                 std,
@@ -112,44 +112,50 @@ where
         },
         Commands::Check {
             max_interval: max_days,
-        } => {
-            match directory
-                .get_files()
-                .interval()
-                .map(|interval| interval.delta())
-            {
-                Some(delta) if delta.abs().num_days() <= max_days.into() => {
-                    writeln!(std, "OK")?;
-                }
-                Some(delta) => {
-                    writeln!(err, "Delta is: {} days", delta.num_days())?;
-                }
-                None => {
-                    writeln!(err, "There is no files to check for interval")?;
-                }
+        } => match directory
+            .get_files()
+            .interval()
+            .map(|interval| interval.delta())
+        {
+            Some(delta) if delta.abs().num_days() <= max_days.into() => {
+                writeln!(std, "OK")?;
             }
-        }
-        Commands::FilesRename { dry_run: _ } => {
-            // directory.name()
-            let _files = directory.get_files();
-        }
-        Commands::MoveByDays { dry_run } => {
+            Some(delta) => {
+                writeln!(err, "Delta is: {} days", delta.num_days())?;
+            }
+            None => {
+                writeln!(err, "There is no files to check for interval")?;
+            }
+        },
+        Commands::FilesRename { dry_run, name } => {
             directory
                 .get_files()
-                .move_by_days()
+                .rename_files(name.as_ref().map_or(directory.name()?, |n| n.as_str()))?
                 .into_iter()
-                .flatten()
-                .try_for_each(|(file, new_path)| {
-                    if let Some(parent) = &new_path.parent() {
-                        if !dry_run {
-                            fs::create_dir_all(parent)?;
-                            fs::rename(&file.path, &new_path)?;
-                        }
-                        writeln!(std, "Move file {:?} => {:?}", file.path, new_path)?;
+                .try_for_each(|RenamedFile(file, new_path)| {
+                    if !dry_run {
+                        fs::rename(&file.path, &new_path)?;
                     }
+                    writeln!(std, "Rename file {:?} => {:?}", file.path, new_path)?;
                     Ok::<(), anyhow::Error>(())
                 })?;
+            let _files = directory.get_files();
         }
+        Commands::MoveByDays { dry_run } => directory
+            .get_files()
+            .move_by_days()
+            .into_iter()
+            .flatten()
+            .try_for_each(|RenamedFile(file, new_path)| {
+                if let Some(parent) = &new_path.parent() {
+                    if !dry_run {
+                        fs::create_dir_all(parent)?;
+                        fs::rename(&file.path, &new_path)?;
+                    }
+                    writeln!(std, "Move file {:?} => {:?}", file.path, new_path)?;
+                }
+                Ok::<(), anyhow::Error>(())
+            })?,
     }
     Ok(())
 }

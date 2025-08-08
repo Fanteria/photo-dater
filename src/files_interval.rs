@@ -1,10 +1,7 @@
 use anyhow::{anyhow, Result};
-use std::{
-    fmt::Display,
-    str::FromStr,
-};
+use std::{fmt::Display, str::FromStr};
 
-use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FilesInterval {
@@ -44,7 +41,7 @@ impl FilesInterval {
         Self::from_date(from, to).ok()
     }
 
-    pub fn delta(&self) -> chrono::TimeDelta {
+    pub fn delta(&self) -> TimeDelta {
         self.to - self.from
     }
 
@@ -134,6 +131,52 @@ mod tests {
         assert_eq!(
             FilesInterval::try_from_name("2025-05-02 - 2025-05-01 - Interval is not possilbe"),
             None,
+        );
+    }
+
+    #[test]
+    fn delta() {
+        assert_eq!(
+            new_files_interval((2025, 5, 1), None).delta(),
+            TimeDelta::seconds(23 * 60 * 60 + 59 * 60 + 59)
+        );
+
+        assert_eq!(
+            new_files_interval((2025, 5, 1), Some((2025, 5, 5))).delta(),
+            TimeDelta::seconds(23 * 60 * 60 + 59 * 60 + 59) + TimeDelta::days(4)
+        );
+    }
+
+    #[test]
+    fn to_string() {
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), None).to_string(),
+            "2025-05-01"
+        );
+
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), Some((2026, 6, 2))).to_string(),
+            "2025-05-01 - 2026-06-02"
+        );
+
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), Some((2025, 6, 2))).to_string(),
+            "2025-05-01 - 06-02"
+        );
+
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), Some((2025, 5, 2))).to_string(),
+            "2025-05-01 - 02"
+        );
+
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), Some((2025, 6, 1))).to_string(),
+            "2025-05-01 - 06-01"
+        );
+
+        assert_eq!(
+            &new_files_interval((2025, 5, 1), Some((2026, 5, 1))).to_string(),
+            "2025-05-01 - 2026-05-01"
         );
     }
 }

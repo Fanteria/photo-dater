@@ -1,17 +1,25 @@
 use super::{file::File, files_interval::FilesInterval};
-use crate::file::ByCreatedDate;
-use anyhow::Result;
-use chrono::NaiveDateTime;
+use crate::file::{ByCreatedDate, ByPath};
+use anyhow::{anyhow, Result};
 use std::{
     fs, io,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
 
+pub type RenamedFiles<'a> = Vec<RenamedFile<'a>>;
+#[derive(Debug, PartialEq, Eq)]
+pub struct RenamedFile<'a>(pub &'a File, pub PathBuf);
+
 #[derive(Debug)]
 pub struct Files(Vec<File>);
 
 impl Files {
+    #[allow(dead_code)]
+    pub fn new(files: Vec<File>) -> Self {
+        Self(files)
+    }
+
     pub fn read(path: impl AsRef<Path>) -> Result<Self> {
         fn read_dir(path: impl AsRef<Path>) -> Result<Vec<File>> {
             fs::read_dir(path.as_ref())?;
@@ -37,6 +45,15 @@ impl Files {
         Ok(Self(read_dir(path)?))
     }
 
+    pub fn get_sorted<'a, T>(&'a self) -> Vec<&'a File>
+    where
+        T: Deref<Target = &'a File> + From<&'a File> + Ord,
+    {
+        let mut files: Vec<_> = self.iter().map(T::from).collect();
+        files.sort();
+        files.into_iter().map(|f| *f).collect()
+    }
+
     pub fn interval(&self) -> Option<FilesInterval> {
         match (
             self.iter().map(ByCreatedDate).min(),
@@ -50,20 +67,28 @@ impl Files {
         }
     }
 
-    pub fn rename_files(&self, _name: &str) -> Vec<(&File, PathBuf)> {
-        // let mut files: Vec<_> = self.iter_mut().map(ByPath::<&mut File>).collect();
-        // files.sort();
-        // files.iter_mut().enumerate().for_each(|(i, file)| {
-        //     file.path.set_file_name(format!("{name} {i:04}"));
-        // });
-        vec![]
+    #[allow(dead_code)]
+    pub fn rename_files(&self, name: &str) -> Result<RenamedFiles> {
+        self.get_sorted::<ByPath<&File>>()
+            .into_iter()
+            .enumerate()
+            .map(|(i, file)| (i + 1, file))
+            .map(|(i, file)| {
+                let new_path = file.path.with_file_name(
+                    file.path
+                        .extension()
+                        .map(|s| s.to_str().ok_or(anyhow!("Non UTF-8 file suffix.")))
+                        .transpose()?
+                        .map(|s| format!("{name} {i:04}.{s}"))
+                        .unwrap_or(format!("{name} {i:04}")),
+                );
+                Ok(RenamedFile(file, new_path))
+            })
+            .collect()
     }
 
     pub fn group_by_days(&self) -> Vec<Vec<&File>> {
-        let mut files: Vec<_> = self.iter().map(ByCreatedDate::<&File>).collect();
-        files.sort();
-        let files: Vec<_> = files.into_iter().map(|f| *f).collect();
-
+        let files = self.get_sorted::<ByCreatedDate<&File>>();
         let first_created = match files.first() {
             Some(file) => file.created.date(),
             None => return Vec::new(),
@@ -85,7 +110,7 @@ impl Files {
         ret
     }
 
-    pub fn move_by_days(&self) -> Vec<Vec<(&File, PathBuf)>> {
+    pub fn move_by_days(&self) -> Vec<RenamedFiles> {
         self.group_by_days()
             .into_iter()
             .map(|group| {
@@ -96,7 +121,7 @@ impl Files {
                             .parent()
                             .map(|parent| parent.join(file.created.format("%Y-%m-%d").to_string()))
                             .and_then(|path| Some(path.join(file.path.file_name()?)))
-                            .map(|new_path| (file, new_path))
+                            .map(|new_path| RenamedFile(file, new_path))
                     })
                     .collect()
             })
@@ -114,5 +139,166 @@ impl Deref for Files {
 impl DerefMut for Files {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use chrono::NaiveDateTime;
+
+    use super::*;
+
+    fn testing_files() -> [File; 3] {
+        [
+            File {
+                path: PathBuf::from("./1.jpg"),
+                created: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap(),
+            },
+            File {
+                path: PathBuf::from("./2.png"),
+                created: NaiveDateTime::from_str("2025-05-01T14:15:16").unwrap(),
+            },
+            File {
+                path: PathBuf::from("./3"),
+                created: NaiveDateTime::from_str("2025-05-03T12:13:14").unwrap(),
+            },
+        ]
+    }
+
+    #[test]
+    fn interval() {
+        let [file1, file2, file3] = testing_files();
+
+        let files = Files(vec![]);
+        assert_eq!(files.interval(), None);
+
+        let files = Files([&file1].into_iter().cloned().collect());
+        assert_eq!(
+            files.interval(),
+            Some(FilesInterval {
+                from: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap(),
+                to: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap()
+            })
+        );
+
+        let files = Files([&file1, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.interval(),
+            Some(FilesInterval {
+                from: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap(),
+                to: NaiveDateTime::from_str("2025-05-01T14:15:16").unwrap()
+            })
+        );
+
+        let files = Files([&file1, &file3].into_iter().cloned().collect());
+        assert_eq!(
+            files.interval(),
+            Some(FilesInterval {
+                from: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap(),
+                to: NaiveDateTime::from_str("2025-05-03T12:13:14").unwrap()
+            })
+        );
+
+        let files = Files([&file1, &file3, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.interval(),
+            Some(FilesInterval {
+                from: NaiveDateTime::from_str("2025-05-01T12:13:14").unwrap(),
+                to: NaiveDateTime::from_str("2025-05-03T12:13:14").unwrap()
+            })
+        );
+    }
+
+    #[test]
+    fn rename_files() -> Result<()> {
+        let [file1, file2, file3] = testing_files();
+
+        let files = Files(vec![]);
+        assert_eq!(files.rename_files("new name")?, vec![]);
+
+        let files = Files([&file1].into_iter().cloned().collect());
+        assert_eq!(
+            files.rename_files("new_name")?,
+            vec![RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg"))]
+        );
+
+        let files = Files([&file1, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.rename_files("new_name")?,
+            vec![
+                RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
+                RenamedFile(&file2, PathBuf::from("./new_name 0002.png"))
+            ]
+        );
+
+        let files = Files([&file1, &file3].into_iter().cloned().collect());
+        assert_eq!(
+            files.rename_files("new_name")?,
+            vec![
+                RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
+                RenamedFile(&file3, PathBuf::from("./new_name 0002")),
+            ]
+        );
+
+        let files = Files([&file1, &file3, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.rename_files("new_name")?,
+            vec![
+                RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
+                RenamedFile(&file2, PathBuf::from("./new_name 0002.png")),
+                RenamedFile(&file3, PathBuf::from("./new_name 0003")),
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn move_by_days() {
+        let [file1, file2, file3] = testing_files();
+
+        let files = Files(vec![]);
+        assert_eq!(files.move_by_days(), Vec::<RenamedFiles>::new());
+
+        let files = Files([&file1].into_iter().cloned().collect());
+        assert_eq!(
+            files.move_by_days(),
+            vec![vec![RenamedFile(
+                &file1,
+                PathBuf::from("./2025-05-01/1.jpg")
+            )]]
+        );
+
+        let files = Files([&file1, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.move_by_days(),
+            vec![vec![
+                RenamedFile(&file1, PathBuf::from("./2025-05-01/1.jpg")),
+                RenamedFile(&file2, PathBuf::from("./2025-05-01/2.png"))
+            ]]
+        );
+
+        let files = Files([&file1, &file3].into_iter().cloned().collect());
+        assert_eq!(
+            files.move_by_days(),
+            vec![
+                vec![RenamedFile(&file1, PathBuf::from("./2025-05-01/1.jpg"))],
+                vec![RenamedFile(&file3, PathBuf::from("./2025-05-03/3"))],
+            ]
+        );
+
+        let files = Files([&file1, &file3, &file2].into_iter().cloned().collect());
+        assert_eq!(
+            files.move_by_days(),
+            vec![
+                vec![
+                    RenamedFile(&file1, PathBuf::from("./2025-05-01/1.jpg")),
+                    RenamedFile(&file2, PathBuf::from("./2025-05-01/2.png"))
+                ],
+                vec![RenamedFile(&file3, PathBuf::from("./2025-05-03/3"))],
+            ]
+        );
     }
 }
