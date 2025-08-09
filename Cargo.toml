@@ -3,6 +3,11 @@ name = "photo-dater"
 version = "0.1.0"
 edition = "2021"
 authors = ["Jiří Alexandrovič"]
+license = "MIT"
+readme = "README.md"
+categories = ["command-line-utilities"]
+description = "A command-line tool for organizing photo directories and files based on EXIF creation dates. Photo Dater helps you maintain consistent naming conventions and organization schemes for your photo collections."
+repository = "https://github.com/Fanteria/photo-dater"
 
 [dependencies]
 kamadak-exif = "0.6"

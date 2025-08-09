@@ -5,7 +5,7 @@ mod files_interval;
 
 use crate::{directory::Directory, file::ByCreatedDate, files::RenamedFile};
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{builder::styling::AnsiColor, Parser, Subcommand};
 use file::File;
 use std::{ffi::OsString, fs, io, path::PathBuf};
 
@@ -21,7 +21,7 @@ enum Commands {
         #[arg(default_value = "0")]
         max_interval: u32,
         /// Preview the rename operation without actually performing it
-        #[arg(short, long)]
+        #[arg(short = 'D', long)]
         dry_run: bool,
     },
 
@@ -40,7 +40,7 @@ enum Commands {
     /// Rename individual files with sequential numbering
     FilesRename {
         /// Preview the rename operation without actually performing it
-        #[arg(short, long)]
+        #[arg(short = 'D', long)]
         dry_run: bool,
         /// Base name for renaming files (uses directory name if not provided)
         #[arg(short, long)]
@@ -50,21 +50,33 @@ enum Commands {
     /// Move files into subdirectories organized by creation date
     MoveByDays {
         /// Preview the move operation without actually performing it
-        #[arg(short, long)]
+        #[arg(short = 'D', long)]
         dry_run: bool,
     },
 }
 
 /// Command-line interface structure
 #[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None, styles = help_colors())]
 struct Cli {
+    /// Target directory to process
+    #[arg(default_value = ".")]
+    directory: PathBuf,
+
     /// The command to execute
     #[command(subcommand)]
     cmd: Commands,
+}
 
-    /// Target directory to process (defaults to current directory)
-    #[arg(short, long, default_value = ".")]
-    directory: PathBuf,
+fn help_colors() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+        .usage(AnsiColor::Green.on_default().bold())
+        .literal(AnsiColor::Cyan.on_default().bold())
+        .header(AnsiColor::Green.on_default().bold())
+        .invalid(AnsiColor::Yellow.on_default())
+        .error(AnsiColor::Red.on_default().bold())
+        .valid(AnsiColor::Green.on_default())
+        .placeholder(AnsiColor::Cyan.on_default())
 }
 
 /// Main application entry point that processes command-line arguments and executes commands.
@@ -85,7 +97,7 @@ where
     WStd: io::Write,
     WErr: io::Write,
 {
-    let Cli { cmd, directory } = Cli::try_parse_from(args)?;
+    let Cli { cmd, directory } = Cli::parse_from(args);
     let directory = Directory::try_from(directory)?;
     match cmd {
         Commands::Status => match directory.name_status() {
