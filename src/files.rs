@@ -25,7 +25,7 @@ pub struct Files(Vec<File>);
 
 impl Files {
     /// Creates a new Files collection from a vector of files.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(files: Vec<File>) -> Self {
         Self(files)
     }
@@ -124,7 +124,6 @@ impl Files {
     /// - "a.png" → "photo 0001.png"  
     /// - "b.jpg" → "photo 0002.jpg"
     /// - "c" → "photo 0003"
-    #[allow(dead_code)]
     pub fn rename_files(&self, name: &str) -> Result<RenamedFiles> {
         self.get_sorted::<ByPath<&File>>()
             .into_iter()

@@ -149,11 +149,11 @@ impl Directory {
                 // TODO how to solve invalid dates???
                 NameStatus::Invalid => self
                     .directory
-                    .with_file_name(format!("{} {}", interval, old_name)),
+                    .with_file_name(format!("{interval} {old_name}")),
                 NameStatus::SuperSet => self.directory.clone(),
                 NameStatus::None => self
                     .directory
-                    .with_file_name(format!("{} {}", interval, old_name)),
+                    .with_file_name(format!("{interval} {old_name}")),
             },
         ))
     }

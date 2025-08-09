@@ -93,7 +93,7 @@ where
             Ok(directory::NameStatus::Invalid) => writeln!(std, "Date is set but is invalid")?,
             Ok(directory::NameStatus::SuperSet) => writeln!(std, "Date is set but is superset")?,
             Ok(directory::NameStatus::None) => writeln!(std, "Date is not set")?,
-            Err(e) => writeln!(std, "Failed to get status '{}'", e)?,
+            Err(e) => writeln!(std, "Failed to get status '{e}'")?,
         },
         Commands::Rename {
             max_interval,
