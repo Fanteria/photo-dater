@@ -17,7 +17,7 @@ pub enum NameStatus {
 }
 
 /// Represents a directory containing photo files with date-based analysis capabilities.
-/// 
+///
 /// This structure encapsulates a directory path and its contained files, providing
 /// methods to analyze the relationship between the directory's name and the
 /// date range of its contents.
@@ -30,16 +30,16 @@ pub struct Directory {
 
 impl Directory {
     /// Creates a new Directory instance from the given path.
-    /// 
+    ///
     /// This constructor validates that the path is actually a directory and
     /// recursively reads all files contained within it.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `directory` - Path to the directory to analyze
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will return an error if:
     /// - The provided path is not a directory
     /// - The directory cannot be read due to permissions or I/O errors
@@ -55,9 +55,9 @@ impl Directory {
     }
 
     /// Extracts the directory name as a string slice.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the directory path has no filename component
     /// or if the filename is not valid UTF-8.
     pub fn name(&self) -> Result<&str> {
@@ -68,9 +68,9 @@ impl Directory {
     }
 
     /// Calculates the date interval spanned by files in this directory.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the directory contains no files with valid dates.
     fn interval(&self) -> Result<FilesInterval> {
         self.files.interval().context("Does not get interval")
@@ -78,9 +78,9 @@ impl Directory {
 
     /// This method compares a directory name against a file date interval to
     /// determine if the name appropriately represents the content.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `interval` - The actual date range of files in the directory
     /// * `name` - The directory name to evaluate
     fn get_status(interval: &FilesInterval, name: &str) -> NameStatus {
@@ -99,9 +99,9 @@ impl Directory {
     }
 
     /// Evaluates the current directory name against its file contents.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the directory name cannot be extracted or if
     /// the file date interval cannot be determined.
     pub fn name_status(&self) -> Result<NameStatus> {
@@ -110,13 +110,13 @@ impl Directory {
 
     /// This method analyzes the current directory name and file date range to
     /// suggest an appropriate new name that reflects the actual content dates.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `max_interval` - Maximum allowed interval in days between oldest and newest files
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will return an error if:
     /// - The date interval exceeds the maximum allowed interval
     /// - The directory name cannot be extracted or is not valid UTF-8

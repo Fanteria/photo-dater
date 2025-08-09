@@ -21,19 +21,19 @@ pub struct File {
 impl File {
     /// This method attempts to parse EXIF metadata from the provided reader
     /// and extract the DateTimeOriginal field.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `reader` - A reader that implements `Read + Seek` for accessing file data
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Returns `Ok(Some(NaiveDateTime))` if EXIF data is found and contains a valid
     /// creation date, `Ok(None)` if no EXIF data or creation date is found, or an
     /// error if the date string cannot be parsed.
-    /// 
+    ///
     /// # Supported Date Formats
-    /// 
+    ///
     /// - `%Y-%m-%d %H:%M:%S` (e.g., "2025-05-01 14:30:25")
     /// - `%Y:%m:%d %H:%M:%S` (e.g., "2025:05:01 14:30:25")
     fn read_time<R>(reader: R) -> Result<Option<NaiveDateTime>>
@@ -63,19 +63,19 @@ impl File {
     /// This method opens the file at the specified path and attempts to extract
     /// the creation date from its EXIF metadata. Files without EXIF data or
     /// without a DateTimeOriginal field are skipped (return None).
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `path` - Path to the file to read
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Returns `Ok(Some(File))` if the file contains valid EXIF creation date,
     /// `Ok(None)` if the file has no EXIF data or creation date, or an error
     /// if the file cannot be read or the date cannot be parsed.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will return an error if:
     /// - The file cannot be opened (permissions, not found, etc.)
     /// - The EXIF date string is present but cannot be parsed
@@ -89,7 +89,7 @@ impl File {
 }
 
 /// Wrapper type that adds path-based ordering to any type that dereferences to File.
-/// 
+///
 /// This struct allows sorting collections of files (or file references) by their
 /// filesystem paths in lexicographical order.
 pub struct ByPath<T>(pub T);
@@ -140,7 +140,7 @@ impl<T> Deref for ByPath<T> {
 }
 
 /// Wrapper type that adds creation date-based ordering to any type that dereferences to File.
-/// 
+///
 /// This struct allows sorting collections of files (or file references) by their
 /// creation timestamps in chronological order.
 pub struct ByCreatedDate<T>(pub T);

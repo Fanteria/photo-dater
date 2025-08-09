@@ -11,13 +11,13 @@ use std::{
 pub type RenamedFiles<'a> = Vec<RenamedFile<'a>>;
 
 /// Represents a file and its proposed new path for rename/move operations.
-/// 
+///
 /// This structure pairs an original file reference with a new filesystem path.
 #[derive(Debug, PartialEq, Eq)]
 pub struct RenamedFile<'a>(pub &'a File, pub PathBuf);
 
 /// A collection of files that provides various operations for file management and organization.
-/// 
+///
 /// This struct wraps a `Vec<File>` and provides methods for reading files from directories,
 /// grouping files by date, and organizing file operations.
 #[derive(Debug)]
@@ -31,17 +31,17 @@ impl Files {
     }
 
     /// Recursively reads all files from the specified directory path.
-    /// 
+    ///
     /// This method traverses the directory tree starting from the given path,
     /// collecting all files found in subdirectories. Files without EXIF data or
     /// creation dates are skipped.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `path` - A path-like object that references the directory to read from
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will return an error if:
     /// - The specified path cannot be read
     /// - File system permissions prevent access to files or directories
@@ -74,13 +74,13 @@ impl Files {
 
     /// This generic method allows sorting files by any ordering wrapper type
     /// that can be constructed from a file reference and implements `Ord`.
-    /// 
+    ///
     /// # Type Parameters
-    /// 
+    ///
     /// * `T` - The ordering wrapper type (e.g., `ByPath<&File>`, `ByCreatedDate<&File>`)
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A vector of file references sorted according to the specified ordering criterion.
     pub fn get_sorted<'a, T>(&'a self) -> Vec<&'a File>
     where
@@ -109,17 +109,17 @@ impl Files {
     /// This method creates a list of rename operations that would give all files
     /// sequential names with the specified base name. Files are sorted by path
     /// before numbering to ensure consistent ordering.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `name` - The base name to use for renaming files
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if file extensions contain non-UTF-8 characters.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// For files "b.jpg", "a.png", "c" with base name "photo":
     /// - "a.png" → "photo 0001.png"  
     /// - "b.jpg" → "photo 0002.jpg"
@@ -144,7 +144,7 @@ impl Files {
     }
 
     /// Groups files by their creation date, with each group containing files from the same day.
-    /// 
+    ///
     /// Files are sorted by creation date and then grouped into vectors where each
     /// vector contains all files created on the same calendar day.
     pub fn group_by_days(&self) -> Vec<Vec<&File>> {
@@ -173,16 +173,16 @@ impl Files {
     /// This method groups files by their creation date and generates new paths
     /// where each file would be moved to a subdirectory named after its creation date
     /// (formatted as "YYYY-MM-DD") within the same parent directory.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A vector of vectors, where each inner vector represents a day's worth of files
     /// and contains `RenamedFile` instances with original file references and new paths.
     /// Files that cannot generate valid new paths (e.g., files without parent directories
     /// or file names) are filtered out.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// For a file "/photos/IMG_001.jpg" created on 2025-05-01:
     /// - New path would be "/photos/2025-05-01/IMG_001.jpg"
     pub fn move_by_days(&self) -> Vec<RenamedFiles> {

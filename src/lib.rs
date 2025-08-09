@@ -68,13 +68,13 @@ struct Cli {
 }
 
 /// Main application entry point that processes command-line arguments and executes commands.
-/// 
+///
 /// This function parses command-line arguments, loads the target directory, and executes
 /// the requested operation. It supports various photo organization tasks including
 /// directory renaming, file listing, date checking, and file reorganization.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `args` - Iterator over command-line arguments
 /// * `std` - Writer for standard output messages
 /// * `err` - Writer for error and status messages

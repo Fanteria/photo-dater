@@ -14,22 +14,22 @@ const SEPARATOR: &str = " - ";
 
 impl FilesInterval {
     /// Attempts to parse a date interval from a directory name string.
-    /// 
+    ///
     /// This method recognizes various directory naming patterns that include date ranges:
-    /// 
+    ///
     /// # Supported Formats
-    /// 
+    ///
     /// - **Single date**: `"2025-05-01 My Photos"` -> May 1st only
     /// - **Full range**: `"2025-05-01 - 2025-05-03 My Photos"` -> May 1st to 3rd, 2025
     /// - **Same year**: `"2025-05-01 - 05-03 My Photos"` -> May 1st to 3rd, 2025  
     /// - **Same month**: `"2025-05-01 - 03 My Photos"` -> May 1st to 3rd, 2025
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `name` - The directory name string to parse
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Returns `Some(FilesInterval)` if a valid date pattern is found,
     /// or `None` if no recognizable date pattern exists.
     pub fn try_from_name(name: &str) -> Option<Self> {
@@ -67,18 +67,18 @@ impl FilesInterval {
     }
 
     /// Creates a FilesInterval from start and end dates.
-    /// 
+    ///
     /// This method constructs a FilesInterval where the start time begins at
     /// the beginning of the `from` date (00:00:00) and the end time extends
     /// to the last second of the `to` date (23:59:59).
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `from` - The start date of the interval
     /// * `to` - The end date of the interval
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the `from` date is later than the `to` date.
     fn from_date(from: NaiveDate, to: NaiveDate) -> Result<Self> {
         if from > to {
@@ -93,12 +93,12 @@ impl FilesInterval {
 
 impl Display for FilesInterval {
     /// Formats the interval as a string suitable for directory names.
-    /// 
+    ///
     /// This implementation uses intelligent formatting to create compact,
     /// readable date ranges:
-    /// 
+    ///
     /// # Formatting Rules
-    /// 
+    ///
     /// - **Single day**: `"2025-05-01"`
     /// - **Different years**: `"2025-05-01 - 2026-06-02"`
     /// - **Same year, different months**: `"2025-05-01 - 06-02"`  
