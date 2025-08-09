@@ -3,57 +3,81 @@ mod file;
 mod files;
 mod files_interval;
 
+use crate::{directory::Directory, file::ByCreatedDate, files::RenamedFile};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use file::File;
 use std::{ffi::OsString, fs, io, path::PathBuf};
 
-use crate::{directory::Directory, file::ByCreatedDate, files::RenamedFile};
-
+/// Available commands
 #[derive(Subcommand, Clone, Debug)]
 enum Commands {
-    /// TODO
+    /// Check the status of directory naming based on contained files' dates
     Status,
-    /// TODO
+
+    /// Rename directory based on the date range of contained files
     Rename {
-        /// Maximal interval in days
+        /// Maximum allowed interval in days between oldest and newest files
         #[arg(default_value = "0")]
         max_interval: u32,
+        /// Preview the rename operation without actually performing it
         #[arg(short, long)]
         dry_run: bool,
     },
-    /// TODO
+
+    /// List all files in the directory sorted by creation date
     List,
-    /// TODO
+
+    /// Display the date interval (range) of files in the directory
     Interval,
-    /// TODO
+
+    /// Check if the file date interval is within acceptable limits
     Check {
-        /// Maximal interval in days
+        /// Maximum allowed interval in days
         max_interval: u32,
     },
-    /// TODO
+
+    /// Rename individual files with sequential numbering
     FilesRename {
+        /// Preview the rename operation without actually performing it
         #[arg(short, long)]
         dry_run: bool,
+        /// Base name for renaming files (uses directory name if not provided)
         #[arg(short, long)]
         name: Option<String>,
     },
-    /// TODO
+
+    /// Move files into subdirectories organized by creation date
     MoveByDays {
+        /// Preview the move operation without actually performing it
         #[arg(short, long)]
         dry_run: bool,
     },
 }
 
+/// Command-line interface structure
 #[derive(Parser, Debug)]
 struct Cli {
+    /// The command to execute
     #[command(subcommand)]
     cmd: Commands,
 
+    /// Target directory to process (defaults to current directory)
     #[arg(short, long, default_value = ".")]
     directory: PathBuf,
 }
 
+/// Main application entry point that processes command-line arguments and executes commands.
+/// 
+/// This function parses command-line arguments, loads the target directory, and executes
+/// the requested operation. It supports various photo organization tasks including
+/// directory renaming, file listing, date checking, and file reorganization.
+/// 
+/// # Arguments
+/// 
+/// * `args` - Iterator over command-line arguments
+/// * `std` - Writer for standard output messages
+/// * `err` - Writer for error and status messages
 pub fn run<I, T, WStd, WErr>(args: I, mut std: WStd, mut err: WErr) -> Result<()>
 where
     I: IntoIterator<Item = T>,

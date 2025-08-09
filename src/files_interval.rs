@@ -3,6 +3,7 @@ use std::{fmt::Display, str::FromStr};
 
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta};
 
+/// Represents a time interval between creation date of first and last photo.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FilesInterval {
     pub from: NaiveDateTime,
@@ -12,6 +13,25 @@ pub struct FilesInterval {
 const SEPARATOR: &str = " - ";
 
 impl FilesInterval {
+    /// Attempts to parse a date interval from a directory name string.
+    /// 
+    /// This method recognizes various directory naming patterns that include date ranges:
+    /// 
+    /// # Supported Formats
+    /// 
+    /// - **Single date**: `"2025-05-01 My Photos"` -> May 1st only
+    /// - **Full range**: `"2025-05-01 - 2025-05-03 My Photos"` -> May 1st to 3rd, 2025
+    /// - **Same year**: `"2025-05-01 - 05-03 My Photos"` -> May 1st to 3rd, 2025  
+    /// - **Same month**: `"2025-05-01 - 03 My Photos"` -> May 1st to 3rd, 2025
+    /// 
+    /// # Arguments
+    /// 
+    /// * `name` - The directory name string to parse
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Some(FilesInterval)` if a valid date pattern is found,
+    /// or `None` if no recognizable date pattern exists.
     pub fn try_from_name(name: &str) -> Option<Self> {
         let (from, to) = name
             // Try if from and to differs.
@@ -41,10 +61,25 @@ impl FilesInterval {
         Self::from_date(from, to).ok()
     }
 
+    /// Calculates the time duration of this interval.
     pub fn delta(&self) -> TimeDelta {
         self.to - self.from
     }
 
+    /// Creates a FilesInterval from start and end dates.
+    /// 
+    /// This method constructs a FilesInterval where the start time begins at
+    /// the beginning of the `from` date (00:00:00) and the end time extends
+    /// to the last second of the `to` date (23:59:59).
+    /// 
+    /// # Arguments
+    /// 
+    /// * `from` - The start date of the interval
+    /// * `to` - The end date of the interval
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the `from` date is later than the `to` date.
     fn from_date(from: NaiveDate, to: NaiveDate) -> Result<Self> {
         if from > to {
             return Err(anyhow!("from date {from} is higher than to date {to}"));
@@ -57,6 +92,17 @@ impl FilesInterval {
 }
 
 impl Display for FilesInterval {
+    /// Formats the interval as a string suitable for directory names.
+    /// 
+    /// This implementation uses intelligent formatting to create compact,
+    /// readable date ranges:
+    /// 
+    /// # Formatting Rules
+    /// 
+    /// - **Single day**: `"2025-05-01"`
+    /// - **Different years**: `"2025-05-01 - 2026-06-02"`
+    /// - **Same year, different months**: `"2025-05-01 - 06-02"`  
+    /// - **Same month**: `"2025-05-01 - 02"`
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut ret = self.from.format("%Y-%m-%d").to_string();
         if self.from.date() == self.to.date() {

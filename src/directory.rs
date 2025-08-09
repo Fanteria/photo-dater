@@ -3,20 +3,47 @@ use crate::files_interval::FilesInterval;
 use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 
+/// Status of a directory's name relative to its file contents' date range.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NameStatus {
+    /// Directory name exactly matches the date range of contained files
     Valid,
+    /// Directory name contains date information but doesn't match file dates
     Invalid,
+    /// Directory name represents a broader date range than the actual files
     SuperSet,
+    /// Directory name contains no date information
     None,
 }
 
+/// Represents a directory containing photo files with date-based analysis capabilities.
+/// 
+/// This structure encapsulates a directory path and its contained files, providing
+/// methods to analyze the relationship between the directory's name and the
+/// date range of its contents.
 pub struct Directory {
+    /// The path to the directory
     pub directory: PathBuf,
+    /// Collection of files found in the directory (recursively)
     files: Files,
 }
 
 impl Directory {
+    /// Creates a new Directory instance from the given path.
+    /// 
+    /// This constructor validates that the path is actually a directory and
+    /// recursively reads all files contained within it.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `directory` - Path to the directory to analyze
+    /// 
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// - The provided path is not a directory
+    /// - The directory cannot be read due to permissions or I/O errors
+    /// - Files within the directory cannot be processed
     pub fn try_from(directory: PathBuf) -> Result<Self> {
         if !directory.is_dir() {
             return Err(anyhow!("{:?} is not directory", directory));
@@ -27,6 +54,12 @@ impl Directory {
         })
     }
 
+    /// Extracts the directory name as a string slice.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the directory path has no filename component
+    /// or if the filename is not valid UTF-8.
     pub fn name(&self) -> Result<&str> {
         self.directory
             .file_name()
@@ -34,10 +67,22 @@ impl Directory {
             .context("Invalid directory name")
     }
 
+    /// Calculates the date interval spanned by files in this directory.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the directory contains no files with valid dates.
     fn interval(&self) -> Result<FilesInterval> {
         self.files.interval().context("Does not get interval")
     }
 
+    /// This method compares a directory name against a file date interval to
+    /// determine if the name appropriately represents the content.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `interval` - The actual date range of files in the directory
+    /// * `name` - The directory name to evaluate
     fn get_status(interval: &FilesInterval, name: &str) -> NameStatus {
         match FilesInterval::try_from_name(name) {
             Some(FilesInterval { from, to })
@@ -53,10 +98,29 @@ impl Directory {
         }
     }
 
+    /// Evaluates the current directory name against its file contents.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the directory name cannot be extracted or if
+    /// the file date interval cannot be determined.
     pub fn name_status(&self) -> Result<NameStatus> {
         Ok(Self::get_status(&self.interval()?, self.name()?))
     }
 
+    /// This method analyzes the current directory name and file date range to
+    /// suggest an appropriate new name that reflects the actual content dates.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `max_interval` - Maximum allowed interval in days between oldest and newest files
+    /// 
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// - The date interval exceeds the maximum allowed interval
+    /// - The directory name cannot be extracted or is not valid UTF-8
+    /// - The file date interval cannot be determined
     pub fn rename(&self, max_interval: u32) -> Result<(NameStatus, PathBuf)> {
         let interval = self.interval()?;
         let delta = self.interval()?.delta();
@@ -94,6 +158,7 @@ impl Directory {
         ))
     }
 
+    /// Provides read-only access to the files contained in this directory.
     pub fn get_files(&self) -> &Files {
         &self.files
     }
@@ -109,6 +174,7 @@ mod tests {
 
     use super::*;
 
+    /// Helper function to create test files with specific creation dates.
     fn test_files() -> [File; 2] {
         [
             File {
