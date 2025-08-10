@@ -58,6 +58,10 @@ enum Commands {
         /// Sorting criterion for file renaming (by-path or by-created-date)
         #[arg(short, long, default_value = "by-path")]
         sort_by: RenameFileSort,
+        /// Number of digits for zero-padding sequential numbers.
+        /// If not specified automatically calculates based on the total number of files.
+        #[arg(short, long)]
+        digits: Option<usize>,
     },
 
     /// Move files into subdirectories organized by creation date
@@ -180,12 +184,15 @@ where
             dry_run,
             name,
             sort_by,
+            digits,
         } => {
             let files = directory.get_files();
             let name = name.as_ref().map_or(directory.name()?, |n| n.as_str());
             match sort_by {
-                RenameFileSort::ByPath => files.rename_files::<ByPath<&File>>(name),
-                RenameFileSort::ByCreatedDate => files.rename_files::<ByCreatedDate<&File>>(name),
+                RenameFileSort::ByPath => files.rename_files::<ByPath<&File>>(name, digits),
+                RenameFileSort::ByCreatedDate => {
+                    files.rename_files::<ByCreatedDate<&File>>(name, digits)
+                }
             }?
             .into_iter()
             .try_for_each(|RenamedFile(file, new_path)| {

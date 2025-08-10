@@ -118,6 +118,8 @@ impl Files {
     /// # Arguments
     ///
     /// * `name` - The base name to use for renaming files
+    /// * `digits` - Optional number of digits for zero-padding the sequential numbers. If `None`,
+    ///   automatically calculates based on the total number of files (e.g., 100 files = 3 digits)
     ///
     /// # Errors
     ///
@@ -129,10 +131,15 @@ impl Files {
     /// - "a.png" → "photo 0001.png"  
     /// - "b.jpg" → "photo 0002.jpg"
     /// - "c" → "photo 0003"
-    pub fn rename_files<'a, T>(&'a self, name: &str) -> Result<RenamedFiles<'a>>
+    pub fn rename_files<'a, T>(
+        &'a self,
+        name: &str,
+        digits: Option<usize>,
+    ) -> Result<RenamedFiles<'a>>
     where
         T: Deref<Target = &'a File> + From<&'a File> + Ord,
     {
+        let digits = digits.unwrap_or((self.len() as f64).log10().floor() as usize + 1);
         self.get_sorted::<T>()
             .into_iter()
             .enumerate()
@@ -143,8 +150,8 @@ impl Files {
                         .extension()
                         .map(|s| s.to_str().ok_or(anyhow!("Non UTF-8 file suffix.")))
                         .transpose()?
-                        .map(|s| format!("{name} {i:04}.{s}"))
-                        .unwrap_or(format!("{name} {i:04}")),
+                        .map(|s| format!("{name} {i:0digits$}.{s}"))
+                        .unwrap_or(format!("{name} {i:0digits$}")),
                 );
                 Ok(RenamedFile(file, new_path))
             })
@@ -301,17 +308,20 @@ mod tests {
         let [file1, file2, file3] = testing_files();
 
         let files = Files(vec![]);
-        assert_eq!(files.rename_files::<ByPath<&File>>("new name")?, vec![]);
+        assert_eq!(
+            files.rename_files::<ByPath<&File>>("new name", Some(4))?,
+            vec![]
+        );
 
         let files = Files([&file1].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files::<ByPath<&File>>("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name", Some(4))?,
             vec![RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg"))]
         );
 
         let files = Files([&file1, &file2].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files::<ByPath<&File>>("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name", Some(4))?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file2, PathBuf::from("./new_name 0002.png"))
@@ -320,7 +330,7 @@ mod tests {
 
         let files = Files([&file1, &file3].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files::<ByPath<&File>>("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name", Some(4))?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file3, PathBuf::from("./new_name 0002")),
@@ -329,7 +339,7 @@ mod tests {
 
         let files = Files([&file1, &file3, &file2].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files::<ByPath<&File>>("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name", Some(4))?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file2, PathBuf::from("./new_name 0002.png")),
