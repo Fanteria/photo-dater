@@ -1,5 +1,5 @@
 use super::{file::File, files_interval::FilesInterval};
-use crate::file::{ByCreatedDate, ByPath};
+use crate::file::ByCreatedDate;
 use anyhow::{anyhow, Result};
 use std::{
     fs, io,
@@ -106,9 +106,14 @@ impl Files {
         }
     }
 
-    /// This method creates a list of rename operations that would give all files
-    /// sequential names with the specified base name. Files are sorted by path
-    /// before numbering to ensure consistent ordering.
+    /// Creates a list of rename operations that would give all files sequential names with the specified base name.
+    ///
+    /// This method generates new file names with sequential numbering based on the provided sorting criterion.
+    /// The sorting order is determined by the generic type parameter `T`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The ordering wrapper type that determines sort order (e.g., `ByPath<&File>`, `ByCreatedDate<&File>`)
     ///
     /// # Arguments
     ///
@@ -120,12 +125,15 @@ impl Files {
     ///
     /// # Examples
     ///
-    /// For files "b.jpg", "a.png", "c" with base name "photo":
+    /// For files "b.jpg", "a.png", "c" with base name "photo" sorted by path:
     /// - "a.png" → "photo 0001.png"  
     /// - "b.jpg" → "photo 0002.jpg"
     /// - "c" → "photo 0003"
-    pub fn rename_files(&self, name: &str) -> Result<RenamedFiles> {
-        self.get_sorted::<ByPath<&File>>()
+    pub fn rename_files<'a, T>(&'a self, name: &str) -> Result<RenamedFiles<'a>>
+    where
+        T: Deref<Target = &'a File> + From<&'a File> + Ord,
+    {
+        self.get_sorted::<T>()
             .into_iter()
             .enumerate()
             .map(|(i, file)| (i + 1, file))
@@ -223,6 +231,8 @@ mod tests {
 
     use chrono::NaiveDateTime;
 
+    use crate::file::ByPath;
+
     use super::*;
 
     fn testing_files() -> [File; 3] {
@@ -291,17 +301,17 @@ mod tests {
         let [file1, file2, file3] = testing_files();
 
         let files = Files(vec![]);
-        assert_eq!(files.rename_files("new name")?, vec![]);
+        assert_eq!(files.rename_files::<ByPath<&File>>("new name")?, vec![]);
 
         let files = Files([&file1].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name")?,
             vec![RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg"))]
         );
 
         let files = Files([&file1, &file2].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name")?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file2, PathBuf::from("./new_name 0002.png"))
@@ -310,7 +320,7 @@ mod tests {
 
         let files = Files([&file1, &file3].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name")?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file3, PathBuf::from("./new_name 0002")),
@@ -319,7 +329,7 @@ mod tests {
 
         let files = Files([&file1, &file3, &file2].into_iter().cloned().collect());
         assert_eq!(
-            files.rename_files("new_name")?,
+            files.rename_files::<ByPath<&File>>("new_name")?,
             vec![
                 RenamedFile(&file1, PathBuf::from("./new_name 0001.jpg")),
                 RenamedFile(&file2, PathBuf::from("./new_name 0002.png")),

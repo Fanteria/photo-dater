@@ -3,11 +3,21 @@ mod file;
 mod files;
 mod files_interval;
 
-use crate::{directory::Directory, file::ByCreatedDate, files::RenamedFile};
+use crate::{
+    directory::Directory,
+    file::{ByCreatedDate, ByPath},
+    files::RenamedFile,
+};
 use anyhow::Result;
-use clap::{builder::styling::AnsiColor, Parser, Subcommand};
+use clap::{builder::styling::AnsiColor, Parser, Subcommand, ValueEnum};
 use file::File;
 use std::{ffi::OsString, fs, io, path::PathBuf};
+
+#[derive(ValueEnum, Debug, Clone)]
+enum RenameFileSort {
+    ByPath,
+    ByCreatedDate,
+}
 
 /// Available commands
 #[derive(Subcommand, Clone, Debug)]
@@ -45,6 +55,9 @@ enum Commands {
         /// Base name for renaming files (uses directory name if not provided)
         #[arg(short, long)]
         name: Option<String>,
+        /// Sorting criterion for file renaming (by-path or by-created-date)
+        #[arg(short, long, default_value = "by-path")]
+        sort_by: RenameFileSort,
     },
 
     /// Move files into subdirectories organized by creation date
@@ -163,19 +176,25 @@ where
                 writeln!(err, "There is no files to check for interval")?;
             }
         },
-        Commands::FilesRename { dry_run, name } => {
-            directory
-                .get_files()
-                .rename_files(name.as_ref().map_or(directory.name()?, |n| n.as_str()))?
-                .into_iter()
-                .try_for_each(|RenamedFile(file, new_path)| {
-                    if !dry_run {
-                        fs::rename(&file.path, &new_path)?;
-                    }
-                    writeln!(std, "Rename file {:?} => {:?}", file.path, new_path)?;
-                    Ok::<(), anyhow::Error>(())
-                })?;
-            let _files = directory.get_files();
+        Commands::FilesRename {
+            dry_run,
+            name,
+            sort_by,
+        } => {
+            let files = directory.get_files();
+            let name = name.as_ref().map_or(directory.name()?, |n| n.as_str());
+            match sort_by {
+                RenameFileSort::ByPath => files.rename_files::<ByPath<&File>>(name),
+                RenameFileSort::ByCreatedDate => files.rename_files::<ByCreatedDate<&File>>(name),
+            }?
+            .into_iter()
+            .try_for_each(|RenamedFile(file, new_path)| {
+                if !dry_run {
+                    fs::rename(&file.path, &new_path)?;
+                }
+                writeln!(std, "Rename file {:?} => {:?}", file.path, new_path)?;
+                Ok::<(), anyhow::Error>(())
+            })?;
         }
         Commands::MoveByDays { dry_run } => directory
             .get_files()
