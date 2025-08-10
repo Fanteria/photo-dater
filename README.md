@@ -1,5 +1,7 @@
 # Photo Dater
 
+[![codecov](https://codecov.io/gh/Fanteria/photo-dater/graph/badge.svg?token=L3VUO5ETEZ)](https://codecov.io/gh/Fanteria/photo-dater)
+
 A command-line tool for organizing photo directories and files based on EXIF creation dates. Photo Dater helps you maintain consistent naming conventions and organization schemes for your photo collections.
 
 ## Features
