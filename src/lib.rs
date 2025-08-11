@@ -7,6 +7,7 @@ use crate::{
     directory::Directory,
     file::{ByCreatedDate, ByPath},
     files::RenamedFile,
+    files_interval::FilesInterval,
 };
 use anyhow::Result;
 use clap::{builder::styling::AnsiColor, Parser, Subcommand, ValueEnum};
@@ -62,6 +63,9 @@ enum Commands {
         /// If not specified automatically calculates based on the total number of files.
         #[arg(short, long)]
         digits: Option<usize>,
+        /// Skip extracting dates from names (applies to both user-provided names and directory names)
+        #[arg(short = 'S', long)]
+        skip_date: bool,
     },
 
     /// Move files into subdirectories organized by creation date
@@ -185,9 +189,17 @@ where
             name,
             sort_by,
             digits,
+            skip_date,
         } => {
             let files = directory.get_files();
             let name = name.as_ref().map_or(directory.name()?, |n| n.as_str());
+            let name = if skip_date {
+                FilesInterval::try_split(name)
+                    .map(|(_interval, name)| name)
+                    .unwrap_or(name)
+            } else {
+                name
+            };
             match sort_by {
                 RenameFileSort::ByPath => files.rename_files::<ByPath<&File>>(name, digits),
                 RenameFileSort::ByCreatedDate => {

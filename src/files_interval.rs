@@ -13,8 +13,56 @@ pub struct FilesInterval {
 const SEPARATOR: &str = " - ";
 
 impl FilesInterval {
-    /// Attempts to parse a date interval from a directory name string.
+    /// This method recognizes various directory naming patterns that include date ranges and splits
+    /// the input into a date interval and the remaining descriptive name portion.
     ///
+    /// # Supported Formats
+    ///
+    /// - **Single date**: `"2025-05-01 My Photos"` -> May 1st only, remaining: "My Photos"
+    /// - **Full range**: `"2025-05-01 - 2025-05-03 My Photos"` -> May 1st to 3rd 2025, remaining: "My Photos"
+    /// - **Same year**: `"2025-05-01 - 05-03 My Photos"` -> May 1st to 3rd 2025, remaining: "My Photos"  
+    /// - **Same month**: `"2025-05-01 - 03 My Photos"` -> May 1st to 3rd 2025, remaining: "My Photos"
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The directory name string to parse
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some((FilesInterval, &str))` if a valid date pattern is found, where the tuple contains
+    /// the parsed date interval and the remaining name portion after the date.
+    /// Returns `None` if no recognizable date pattern exists.
+    pub fn try_split(name: &str) -> Option<(Self, &str)> {
+        let (from, to, name) = name
+            // Try if from and to differs.
+            .split_once(SEPARATOR)
+            .and_then(|(from, name)| name.split_once(' ').map(|(to, name)| (from, to, name)))
+            .and_then(|(from, to, name)| {
+                let from = NaiveDate::from_str(from).ok()?;
+                // Check if date is `yyyy-mm-dd`
+                let to = NaiveDate::from_str(to)
+                    .or_else(|_| {
+                        // Check if date is `mm-dd`
+                        NaiveDate::from_str(&format!("{:04}-{to}", from.year()))
+                    })
+                    .or_else(|_| {
+                        // Check if date is `dd`
+                        NaiveDate::from_str(&format!("{:04}-{:02}-{to}", from.year(), from.month()))
+                    })
+                    .ok()?;
+                Some((from, to, name))
+            })
+            // From and to are same day.
+            .or_else(|| {
+                let (from_str, name) = name.split_once(' ')?;
+                let from = NaiveDate::from_str(from_str).ok()?;
+                Some((from, from, name))
+            })?;
+        Self::from_date(from, to)
+            .ok()
+            .map(|interval| (interval, name))
+    }
+
     /// This method recognizes various directory naming patterns that include date ranges:
     ///
     /// # Supported Formats
@@ -33,32 +81,7 @@ impl FilesInterval {
     /// Returns `Some(FilesInterval)` if a valid date pattern is found,
     /// or `None` if no recognizable date pattern exists.
     pub fn try_from_name(name: &str) -> Option<Self> {
-        let (from, to) = name
-            // Try if from and to differs.
-            .split_once(SEPARATOR)
-            .and_then(|(from, name)| name.split_once(' ').map(|(to, _name)| (from, to)))
-            .and_then(|(from, to)| {
-                let from = NaiveDate::from_str(from).ok()?;
-                // Check if date is `yyyy-mm-dd`
-                let to = NaiveDate::from_str(to)
-                    .or_else(|_| {
-                        // Check if date is `mm-dd`
-                        NaiveDate::from_str(&format!("{:04}-{to}", from.year()))
-                    })
-                    .or_else(|_| {
-                        // Check if date is `dd`
-                        NaiveDate::from_str(&format!("{:04}-{:02}-{to}", from.year(), from.month()))
-                    })
-                    .ok()?;
-                Some((from, to))
-            })
-            // From and to are same day.
-            .or_else(|| {
-                let (from_str, _name) = name.split_once(' ')?;
-                let from = NaiveDate::from_str(from_str).ok()?;
-                Some((from, from))
-            })?;
-        Self::from_date(from, to).ok()
+        Self::try_split(name).map(|(interval, _name)| interval)
     }
 
     /// Calculates the time duration of this interval.
