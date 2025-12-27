@@ -200,7 +200,7 @@ impl Files {
     ///
     /// For a file "/photos/IMG_001.jpg" created on 2025-05-01:
     /// - New path would be "/photos/2025-05-01/IMG_001.jpg"
-    pub fn move_by_days(&self) -> Vec<RenamedFiles> {
+    pub fn move_by_days(&self) -> Vec<RenamedFiles<'_>> {
         self.group_by_days()
             .into_iter()
             .map(|group| {
